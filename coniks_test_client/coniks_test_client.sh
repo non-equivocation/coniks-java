@@ -35,7 +35,7 @@
 
 # Set all the configs here
 # mvn builds our jar with dependencies
-CLASS_DEST="./target/coniks_test_client-1.3-SNAPSHOT.jar"
+CLASS_DEST="./target/coniks_test_client-0.4.0.jar"
 CLASSPATH="-cp $CLASS_DEST"
 CLIENT_BIN="org.coniks.coniks_test_client.TestClient"
 CONIKS_CLIENTCONFIG="config"

@@ -437,6 +437,9 @@ public class ServerUtils{
         byte[] prevEpBytes = longToBytes(str.getPrevEpoch());
         byte[] prevStrHash = str.getPrevSTRHash();
         byte[] sig = str.getSignature();
+        
+        Logging.log("rootBytes: " + rootBytes + ", epBytes: " + epBytes + ", prevEpBytes: " 
+                + prevEpBytes + ", prevStrHash: " + prevStrHash + ", sig: " + sig);
 
         byte[] strBytes = new byte[rootBytes.length+epBytes.length+prevEpBytes.length+
                                    prevStrHash.length+sig.length];

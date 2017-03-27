@@ -48,10 +48,14 @@ public class ClientConfig{
 
     private static final int PORT_IDX = 0;
     private static final int USERKEYS_PATH_IDX = 1;
-    private static final int KEYSTORE_PATH_IDX = 2; //unused
-    private static final int KEYSTORE_PWD_IDX = 3; //unused
-    private static final int TRUSTSTORE_PATH_IDX = 4; //unused
-    private static final int TRUSTSTORE_PWD_IDX = 5; //unused
+    
+    private static final int CATENA_GENESIS_TXID_IDX = 2;
+    private static final int CATENA_LOG_ADDRESS_IDX = 3;
+    
+    private static final int KEYSTORE_PATH_IDX = 4; //unused
+    private static final int KEYSTORE_PWD_IDX = 5; //unused
+    private static final int TRUSTSTORE_PATH_IDX = 6; //unused
+    private static final int TRUSTSTORE_PWD_IDX = 7; //unused
 
     /** The port number on which the CONIKS server is listening
      */
@@ -59,6 +63,9 @@ public class ClientConfig{
 
     /** The path to the saved user keys */
     private static String USER_KEYS_PATH = "";
+    
+    static String CATENA_GENESIS_TXID = "";
+    static String CATENA_LOG_ADDRESS = "";
 
     /** The path to the client's private DSA key */
     private static String KEYSTORE_PATH = "";
@@ -140,6 +147,8 @@ public class ClientConfig{
             
             PORT = Integer.parseInt(configs.get(PORT_IDX));
             USER_KEYS_PATH = configs.get(USERKEYS_PATH_IDX);
+            CATENA_GENESIS_TXID = configs.get(CATENA_GENESIS_TXID_IDX);
+            CATENA_LOG_ADDRESS = configs.get(CATENA_LOG_ADDRESS_IDX);
             //KEYSTORE_PATH = configs.get(KEYSTORE_PATH_IDX);
             //KEYSTORE_PWD = configs.get(KEYSTORE_PWD_IDX);
 

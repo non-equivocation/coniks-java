@@ -40,11 +40,11 @@ import java.security.cert.CertificateException;
 import java.math.BigInteger;
 import java.util.HashMap;
 import java.util.Scanner;
-import java.io.PrintWriter;
 import java.io.*;
 
 // coniks-java imports
 import org.coniks.coniks_common.C2SProtos.DSAPublicKeyProto;
+import org.coniks.crypto.Keys;
 import org.coniks.util.Logging;
 
 /** Implements all encryption-key related operations that a
@@ -64,50 +64,57 @@ public class KeyOps{
      */
     public static RSAPrivateKey loadSigningKey(){
 
-        KeyStore ks = null;
-        RSAPrivateKey myPrivateKey = null;
-
-        try{
-            ks = KeyStore.getInstance(KeyStore.getDefaultType());
-
-            // get user password and file input stream
-            char[] ks_password = ServerConfig.getKeystorePassword().toCharArray();
-
-            FileInputStream fis = null;
-
-            fis = new FileInputStream(ServerConfig.getKeystorePath());
-            ks.load(fis, ks_password);
-
-            if(ks.isKeyEntry(ServerConfig.getName())){
-                KeyStore.ProtectionParameter protParam =
-                    new KeyStore.PasswordProtection(ks_password);
-
-                KeyStore.PrivateKeyEntry pkEntry = (KeyStore.PrivateKeyEntry)
-                    ks.getEntry(ServerConfig.getName(), protParam);
-                myPrivateKey = (RSAPrivateKey)pkEntry.getPrivateKey();
-            }
-            else{
-                throw new CertificateException();
-            }
-            fis.close();
-            return myPrivateKey;
+        try {
+            return (RSAPrivateKey)(Keys.generateRSAKeyPair().getPrivate());
+        } catch (NoSuchAlgorithmException e) {
+            e.printStackTrace();
+            throw new RuntimeException(e);
         }
-        catch(IOException e){
-            Logging.error("KeyOps:loadSigningKey: Problem loading the keystore");
-        }
-        catch(NoSuchAlgorithmException e){
-            Logging.error("KeyOps:loadSigningKey: Problem with integrity check algorithm");
-        }
-        catch(CertificateException e){
-            Logging.error("KeyOps:loadSigningKey: Problem with the cert(s) in keystore");
-        }
-        catch(KeyStoreException e){
-            Logging.error("KeyOps:loadSigningKey: Problem getting Keystore instance");
-        }
-        catch(UnrecoverableEntryException e){
-            Logging.error("KeyOps:loadSigningKey: specified protParam were insufficient or invalid");
-        }
-        return null;
+        
+//        KeyStore ks = null;
+//        RSAPrivateKey myPrivateKey = null;
+//
+//        try{
+//            ks = KeyStore.getInstance(KeyStore.getDefaultType());
+//
+//            // get user password and file input stream
+//            char[] ks_password = ServerConfig.getKeystorePassword().toCharArray();
+//
+//            FileInputStream fis = null;
+//
+//            fis = new FileInputStream(ServerConfig.getKeystorePath());
+//            ks.load(fis, ks_password);
+//
+//            if(ks.isKeyEntry(ServerConfig.getName())){
+//                KeyStore.ProtectionParameter protParam =
+//                    new KeyStore.PasswordProtection(ks_password);
+//
+//                KeyStore.PrivateKeyEntry pkEntry = (KeyStore.PrivateKeyEntry)
+//                    ks.getEntry(ServerConfig.getName(), protParam);
+//                myPrivateKey = (RSAPrivateKey)pkEntry.getPrivateKey();
+//            }
+//            else{
+//                throw new CertificateException();
+//            }
+//            fis.close();
+//            return myPrivateKey;
+//        }
+//        catch(IOException e){
+//            Logging.error("KeyOps:loadSigningKey: Problem loading the keystore: " + e);
+//        }
+//        catch(NoSuchAlgorithmException e){
+//            Logging.error("KeyOps:loadSigningKey: Problem with integrity check algorithm");
+//        }
+//        catch(CertificateException e){
+//            Logging.error("KeyOps:loadSigningKey: Problem with the cert(s) in keystore");
+//        }
+//        catch(KeyStoreException e){
+//            Logging.error("KeyOps:loadSigningKey: Problem getting Keystore instance");
+//        }
+//        catch(UnrecoverableEntryException e){
+//            Logging.error("KeyOps:loadSigningKey: specified protParam were insufficient or invalid");
+//        }
+//        return null;
     }
 
      /** Load the given server {@code keyOwner}'s public key from the truststore

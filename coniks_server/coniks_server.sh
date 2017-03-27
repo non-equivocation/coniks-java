@@ -35,7 +35,7 @@
 
 # Set all the configs here
 # mvn builds our jar with dependencies
-CLASS_DEST="./target/coniks_server-1.3-SNAPSHOT.jar"
+CLASS_DEST="./target/coniks_server-0.4.0.jar"
 CLASSPATH="-cp $CLASS_DEST"
 SERVER_BIN="org.coniks.coniks_server.ConiksServer"
 CONIKS_SERVERCONFIG="config" #change this if using a different config file

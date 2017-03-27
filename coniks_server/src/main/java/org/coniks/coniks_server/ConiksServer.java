@@ -37,16 +37,8 @@ package org.coniks.coniks_server;
 import org.coniks.crypto.Digest;
 import org.coniks.util.Logging;
 import org.coniks.coniks_common.MsgType;
-import org.coniks.coniks_common.C2SProtos.Registration;
-import org.coniks.coniks_common.C2SProtos.CommitmentReq;
-import org.coniks.coniks_common.C2SProtos.KeyLookup;
-import org.coniks.coniks_common.C2SProtos.RegistrationResp;
-import org.coniks.coniks_common.C2SProtos.AuthPath;
 import org.coniks.coniks_common.C2SProtos.*;
 
-import org.coniks.coniks_common.UtilProtos.Hash;
-import org.coniks.coniks_common.UtilProtos.Commitment;
-import org.coniks.coniks_common.UtilProtos.ServerResp;
 import org.coniks.coniks_common.UtilProtos.*;
 
 import java.security.interfaces.DSAPublicKey;
@@ -70,6 +62,16 @@ import com.google.protobuf.*;
 import org.javatuples.*;
 import java.util.Arrays;
 
+import org.bitcoinj.core.DumpedPrivateKey;
+import org.bitcoinj.core.ECKey;
+import org.bitcoinj.core.NetworkParameters;
+import org.bitcoinj.core.Sha256Hash;
+import org.bitcoinj.params.RegTestParams;
+import org.bitcoinj.params.TestNet3Params;
+
+import org.catena.common.SimpleWallet;
+import org.catena.server.CatenaServer;
+
 /** Implements the main CONIKS server operations:
  * interface to client, initiates Merkle tree rebuilding
  * and signed tree root (STR) generation.
@@ -90,6 +92,9 @@ public class ConiksServer{
     private static Timer epochTimer = new Timer("epoch timer", false); // may wish to run as daemon later
 
     private static long initEpoch;
+    
+    private static CatenaServer catServer;
+    private static NetworkParameters params = TestNet3Params.get();
 
     /** Initialize the directory: get the latest root node from the
      * database (if using one) and update the directory internally (i.e. build the hash tree)
@@ -175,13 +180,14 @@ public class ConiksServer{
         }
 
         // false indicates an error, so exit
+
+        Logging.setup(logPath+"/server-%g", "Server");
         if (!ServerConfig.readServerConfig(configFile, isFullOp)) {
             System.exit(-1);
         }
 
         // set some more configs
         initEpoch = ServerConfig.getStartupTime();
-        Logging.setup(logPath+"/server-%g", "Server");
 
         System.setProperty("javax.net.ssl.keyStore", ServerConfig.getKeystorePath());
         System.setProperty("javax.net.ssl.keyStorePassword", ServerConfig.getKeystorePassword());
@@ -212,6 +218,21 @@ public class ConiksServer{
             printStatusMsg(true, "Error initializing the history");
             System.exit(-1);
          }
+         
+         // Initialize the Catena log server
+         Sha256Hash txid = Sha256Hash.wrap(ServerConfig.CATENA_GENESIS_TXID);
+         ECKey chainKey = DumpedPrivateKey.fromBase58(params, ServerConfig.CATENA_STMT_KEY).getKey();
+         try {
+             catServer = new CatenaServer(params, new File("catena-server"), chainKey, txid);
+             
+             // Download the block chain and wait until it's done.
+             catServer.startAsync();
+             catServer.awaitRunning();
+             Logging.log("Wallet balance: " + catServer.getCatenaWallet().getBalance().toFriendlyString());
+             
+         } catch (Exception e) {
+             throw new RuntimeException("Failed setting up Catena log server: " + e);
+         }
 
         EpochTimerTask epochSnapshotTaker = new EpochTimerTask();
 
@@ -231,42 +252,58 @@ public class ConiksServer{
 
         public void run() {
             Logging.log("Timer task started.");
-            RootNode nextRoot = DirectoryOps.updateDirectory();
-
-            // check that we got a good first tree
-            if(nextRoot == null) {
+            try {
+                RootNode nextRoot = DirectoryOps.updateDirectory();
+    
+                // check that we got a good first tree
+                if(nextRoot == null) {
+                    if (isFullOp) {
+                        Logging.error("An error occured while trying to update the tree");
+                    }
+                    else {
+                        printStatusMsg(true, "An error occured while trying to update the tree");
+                    }
+                    // let's not quite bail here
+                    throw new UnsupportedOperationException("Next root was null");
+                }
+    
+                // this should approximately be EPOCH_INTERVAL millis since the last call
+                long nextEpoch = System.currentTimeMillis();
+    
+                SignedTreeRoot nextSTR = TransparencyOps.generateNextSTR(nextRoot, nextEpoch);
+                
+                // Publish STR to Catena log, except we publish the hash of the signature 
+                // (RSA sigs are 256 bytes > 80 bytes OP_RETURN payload limit)
+                try {
+                    byte[] hashedSig = Digest.digest(nextSTR.getSignature());
+                    Logging.log("Preparing to issue Catena statement...");
+                    catServer.appendStatement(hashedSig);
+                    Logging.log("Done issuing Catena statement!");
+                } catch (Throwable e) {
+                    Logging.error("An error occured while publishing STR to Catena log: " + e);
+                }
+    
+                if (!ServerHistory.updateHistory(nextSTR)) {
+                    if (isFullOp) {
+                        Logging.error("An error occured while trying to update the tree");
+                    }
+                    else {
+                        printStatusMsg(true, "An error occured while trying to update the tree");
+                    }
+                    // let's not quite bail here
+                    throw new UnsupportedOperationException("Next STR was null or malformed");
+                }
+    
+                // we're here so the update went well
                 if (isFullOp) {
-                    Logging.error("An error occured while trying to update the tree");
+                    Logging.log("Directory update successful. Next epoch: "+nextEpoch);
                 }
                 else {
-                    printStatusMsg(true, "An error occured while trying to update the tree");
+                    printStatusMsg(false, "Directory update successful. Next epoch: "+nextEpoch);
                 }
-                // let's not quite bail here
-                throw new UnsupportedOperationException("Next root was null");
-            }
-
-            // this should approximately be EPOCH_INTERVAL millis since the last call
-            long nextEpoch = System.currentTimeMillis();
-
-            SignedTreeRoot nextSTR = TransparencyOps.generateNextSTR(nextRoot, nextEpoch);
-
-            if (!ServerHistory.updateHistory(nextSTR)) {
-                if (isFullOp) {
-                    Logging.error("An error occured while trying to update the tree");
-                }
-                else {
-                    printStatusMsg(true, "An error occured while trying to update the tree");
-                }
-                // let's not quite bail here
-                throw new UnsupportedOperationException("Next STR was null or malformed");
-            }
-
-            // we're here so the update went well
-            if (isFullOp) {
-                Logging.log("Directory update successful. Next epoch: "+nextEpoch);
-            }
-            else {
-                printStatusMsg(false, "Directory update successful. Next epoch: "+nextEpoch);
+            } catch (Throwable e) {
+                Logging.error("Exception in timer task: " + e);
+                e.printStackTrace();
             }
         }
 

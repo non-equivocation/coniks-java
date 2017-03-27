@@ -2,3 +2,8 @@
 target
 bin
 logs
+/CATENA-changes.html
+/coniks_server/catena-server
+/coniks_server/keystore
+/coniks_test_client/catena-client
+/coniks_test_client/keys

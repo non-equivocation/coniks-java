@@ -55,8 +55,12 @@ public class ServerConfig{
     private static final int EPOCH_INTERVAL_IDX = 3;
     private static final int KEYSTORE_PATH_IDX = 4;
     private static final int KEYSTORE_PWD_IDX = 5;
-    private static final int TRUSTSTORE_PATH_IDX = 6;
-    private static final int TRUSTSTORE_PWD_IDX = 7;
+    
+    private static final int CATENA_STMT_KEY_IDX = 6;
+    private static final int CATENA_GENESIS_TXID_IDX = 7;
+    
+    private static final int TRUSTSTORE_PATH_IDX = 8;
+    private static final int TRUSTSTORE_PWD_IDX = 9;
 
     /** The port number on which the CONIKS server is listening
      */
@@ -82,6 +86,9 @@ public class ServerConfig{
     /** The password to the server's private key store
      */
     private static String KEYSTORE_PWD = "";
+
+    static String CATENA_STMT_KEY = "";    
+    static String CATENA_GENESIS_TXID = "";
 
     /** The path to the server's trusted certificate store
      */
@@ -185,6 +192,9 @@ public class ServerConfig{
             EPOCH_INTERVAL = Integer.parseInt(configs.get(EPOCH_INTERVAL_IDX));
             KEYSTORE_PATH = configs.get(KEYSTORE_PATH_IDX);
             KEYSTORE_PWD = configs.get(KEYSTORE_PWD_IDX);
+            
+            CATENA_STMT_KEY = configs.get(CATENA_STMT_KEY_IDX);
+            CATENA_GENESIS_TXID = configs.get(CATENA_GENESIS_TXID_IDX);
 
             // skip these if we're testing the server
             if (isFullOp) {

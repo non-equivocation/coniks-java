@@ -50,8 +50,23 @@ import org.coniks.crypto.Signing;
 import org.coniks.crypto.Keys;
 import org.coniks.util.Logging;
 import org.coniks.coniks_common.C2SProtos.*;
+import org.coniks.coniks_common.C2SProtos.CommitmentReq.CommitmentType;
+import org.coniks.coniks_common.UtilProtos.Commitment;
 import org.coniks.coniks_common.UtilProtos.ServerResp;
 import org.coniks.coniks_common.ServerErr;
+
+import org.bitcoinj.core.Address;
+import org.bitcoinj.core.NetworkParameters;
+import org.bitcoinj.core.Sha256Hash;
+import org.bitcoinj.core.Transaction;
+import org.bitcoinj.params.TestNet3Params;
+import org.catena.client.CatenaClient;
+import org.catena.client.CatenaStatementListener;
+import org.catena.client.CatenaWalletListener;
+import org.catena.client.CatenaWhistleblowListener;
+import org.catena.client.ClientWallet;
+import org.catena.common.CatenaStatement;
+import org.catena.common.Utils;
 
 /** Implementation of a simple CONIKS test client
  * that simply displays how each component of the
@@ -80,6 +95,10 @@ public class TestClient {
     private static HashMap<String,ClientUser> users;
 
     private static int changeCtr = 0; // this is just used to change the key data
+    
+    // The last epoch that we validated successfully against the Catena log 
+    private static CatenaClient catClient;
+    private static NetworkParameters params = TestNet3Params.get();
 
     /** Sets the default truststore according to the {@link ClientConfig}.
      * This is needed to set up SSL connections with a CONIKS server.
@@ -169,6 +188,30 @@ public class TestClient {
             return ServerErr.SUCCESS;
         }
 
+    }
+    
+    private static void setupBitcoinWitnessing() {
+        ClientWallet w = catClient.getCatenaWallet();
+        
+        /**
+         * Because this current CONIKS test client is incomplete and does not actually keep track of STRs
+         * we are not going to do anything fancy here other than just print the witnessed (hashed) STRs. 
+         */
+        w.addStatementListener(new CatenaStatementListener() {
+            public void onStatementAppended(CatenaStatement s) {
+                Logging.log("New CONIKS witnessed statement (hash of STR in hex): " + Utils.toHex(s.getData()));
+            }
+            
+            public void onStatementWithdrawn(CatenaStatement s) {
+                Logging.error("Previously-witnessed statement has been WITHDRAWN (hash of STR in hex): " + Utils.toHex(s.getData()));
+            }
+        });
+        
+        w.addWhistleblowListener(new CatenaWhistleblowListener() {
+            public void onWhistleblow(Transaction tx, String message) {
+                Logging.error("Whistleblowing for double-spent transaction " + tx.getHashAsString() + ": " + message);
+            }
+        });
     }
 
     /** Looks up the public key for the given {@code uname}
@@ -657,6 +700,25 @@ public class TestClient {
         if (isFullOp) {
             // this is needed to enable the client to communicate using SSL
             setDefaultTruststore();
+        }
+
+        Sha256Hash txid = Sha256Hash.wrap(ClientConfig.CATENA_GENESIS_TXID);
+        Address chainAddr = Address.fromBase58(params, ClientConfig.CATENA_LOG_ADDRESS);
+        try {
+            catClient = new CatenaClient(params, new File("catena-client"), txid, chainAddr, null);
+            
+            // Download the block chain and wait until it's done.
+            catClient.startAsync();
+            catClient.awaitRunning();
+            
+            setupBitcoinWitnessing();
+            
+            for(Transaction t : catClient.getCatenaWallet().getTransactions(false)) {
+                Logging.log("Wallet TX: " + t);
+            }
+            
+        } catch (Exception e) {
+            throw new RuntimeException("Failed setting up Catena log server: " + e);
         }
 
         // initialize the set of users

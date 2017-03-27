@@ -19,6 +19,27 @@
   </description>
 
   <dependencies>
+
+    <dependency>
+      <groupId>com.google.guava</groupId>
+      <artifactId>guava</artifactId>
+      <version>18.0</version>
+    </dependency>
+
+    <dependency>
+      <groupId>org.catena</groupId>
+      <artifactId>catena</artifactId>
+      <version>1.0</version>
+      <scope>compile</scope>
+    </dependency>
+
+    <dependency>
+      <groupId>org.bitcoinj</groupId>
+      <artifactId>bitcoinj-core</artifactId>
+      <version>0.14.3</version>
+      <scope>compile</scope>
+    </dependency>
+
     <dependency>
       <groupId>org.coniks.coniks_common</groupId>
       <artifactId>coniks_common</artifactId>
